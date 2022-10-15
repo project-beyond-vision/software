@@ -5,7 +5,9 @@
     - on windows go to /.venv/Scripts and source Activate.ps1
 4. dont forget to install sqlalchemy for the database 
     pip install Flask-SQLAlchemy 
-4. to start the server type in
+5. to start the server type in
     python -m flask run
 
-I'm still setting up SQLAlchemy with SQLite lol
+test.py is used to test whether the POST request works with the API route
+
+TODO: create front end for data visualization
