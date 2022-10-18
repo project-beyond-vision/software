@@ -1,8 +1,12 @@
+import sys
+sys.path.append('..')
+
 import paho.mqtt.client as mqtt
 import json
 import requests
 from datetime import datetime
 from config import *
+from predictor import *
 import time
 
 # it should have 60 entries in it
@@ -14,7 +18,10 @@ class MqttManager():
         self.client = client
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        dummy = [1.1,2.2,3.3,4.4,5.5,6.6]
         self.belt_imu_queue = []
+        for i in range(60):
+            self.belt_imu_queue.append(dummy)
         self.predqueue = []
         self.stick_threshold = False
         self.stick_threshold_time = time.perf_counter()
@@ -79,22 +86,20 @@ class MqttManager():
         self.stick_threshold = True
         self.stick_threshold_time = time.perf_counter()
 
-    def make_prediction(self):
-        #TODO: make sure that the imu queue has 60 >= entries in it
-        #TODO: make sure that predqueue has 4>= entries in it
-        
+    def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
-        # if len(self.belt_imu_queue) < 60:
-        #     return
-        pred = 1 # dummy variable until api call is done
-
+        if len(self.belt_imu_queue) < 60:
+            return
+        print("here")
+        pred = predictor(np.array(self.belt_imu_queue)) # dummy variable until api call is done
+        print(pred)
         # update predqueue
         while len(self.predqueue) >= 4:
             self.predqueue.pop(0)
         self.predqueue.append(pred)
 
         # 1 is dummy number for when fall detected
-        if pred == 1 and self.stick_threshold:
+        if pred == activity[0] and self.stick_threshold:
             self.predqueuebuffer = self.predqueue
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", "GPS trigger message")
@@ -112,11 +117,9 @@ def main():
 
     print("Connecting")
     client.connect(mosquitto_ip, 1883, 60)
-    # client.publish("group_05/panic", "TEST SENDING")
     # client.loop_forever() #blocks function thread from executing forever
     client.loop_start() # non-blocking
     predtimer = time.perf_counter()
-    thresholdtimer = time.perf_counter()
     while True:
         # make predictions in 3 second intervals
         if time.perf_counter() - predtimer > PRED_INTERVAL:
@@ -130,7 +133,6 @@ def main():
         
 
         time.sleep(0.001)
-    # make predictions and update flags here 
 
 if __name__ == "__main__":
     main()
