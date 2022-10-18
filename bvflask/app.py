@@ -1,9 +1,13 @@
 from datetime import datetime
+from statistics import mean
 from flask import Flask, render_template, request, jsonify
 import json
 import os
 
 from flask_sqlalchemy import SQLAlchemy
+
+import folium
+from folium.plugins import HeatMap
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] =\
@@ -43,7 +47,42 @@ def store():
     except Exception as e:
         print(e)
         return json.dumps({'success':False}), 400, {'ContentType':'application/json'} 
-        
+
+@app.route('/hello')
+def get_entries():
+    entry = db.session.query(Entry)
+    print(entry.time)
+    print(entry)
+    return str(entry)
+
+@app.route('/drawMap')
+def draw_map():
+    # map_data = pd.read_csv("./Data/data_01.csv", sep=';')
+    entries = db.session.query(Entry)
+    lats = []
+    longs = []
+    preds = []
+    for entry in entries:
+        lats.append(entry.lat)
+        longs.append(entry.long)
+        preds.append(entry.pred4)
+    lat = mean(lats)
+    long = mean(longs)
+    startingLocation = [lat, long]#[39.47, -0.37]
+    hmap = folium.Map(location=startingLocation, zoom_start=15)
+    # max_amount = map_data['RelacionPrecioTamanio'].max()
+    hm_wide = HeatMap( list(zip(lats, longs, preds)),
+                        min_opacity=0.2,
+                        max_val=5,
+                        radius=17, blur=15,
+                        max_zoom=1)
+
+    # Adds the heatmap element to the map
+    hmap.add_child(hm_wide)
+    # Saves the map to heatmap.hmtl
+    hmap.save(os.path.join('./templates', 'heatmap.html'))
+    #Render the heatmap
+    return render_template('heatmap.html')
 
 
 class Entry(db.Model):
@@ -66,7 +105,7 @@ class Entry(db.Model):
         self.pred4 = pred4
 
     def __repr__(self):
-        return '<id %r>' % self.id
+        return '<id %r>' % self.time
 
 if __name__ == '__main__':
     with app.app_context(): #uncomment these 2 lines to instantiate db
