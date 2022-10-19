@@ -18,7 +18,7 @@ class MqttManager():
         self.client = client
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        dummy = [1.1,2.2,3.3,4.4,5.5,6.6]
+        dummy = [0.1,0.2,0.3,0.4,0.5,0.6]
         self.belt_imu_queue = []
         for i in range(60):
             self.belt_imu_queue.append(dummy)
@@ -90,8 +90,8 @@ class MqttManager():
         # DO NOT make prediction if there is less than 60 imu entries
         if len(self.belt_imu_queue) < 60:
             return
-        print("here")
-        pred = predictor(np.array(self.belt_imu_queue)) # dummy variable until api call is done
+        data = np.array(self.belt_imu_queue)
+        pred = predictor(data) # dummy variable until api call is done
         print(pred)
         # update predqueue
         while len(self.predqueue) >= 4:
