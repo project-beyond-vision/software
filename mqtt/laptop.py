@@ -18,10 +18,7 @@ class MqttManager():
         self.client = client
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        dummy = [0.1,0.2,0.3,0.4,0.5,0.6]
         self.belt_imu_queue = []
-        for i in range(60):
-            self.belt_imu_queue.append(dummy)
         self.predqueue = []
         self.stick_threshold = False
         self.stick_threshold_time = time.perf_counter()
@@ -36,7 +33,7 @@ class MqttManager():
         client.subscribe("group_05/gps")
 
     def on_message(self, client, userdata, msg):
-        print(msg.topic, msg.payload.decode("utf-8"))
+        # print(msg.topic, msg.payload.decode("utf-8"))
         if (msg.topic == "group_05/imu/data"):
             self.store_imu_data(msg.payload.decode("utf-8"))
         elif (msg.topic == "group_05/imu/threshold"):
@@ -85,11 +82,14 @@ class MqttManager():
     def update_threshold(self):
         self.stick_threshold = True
         self.stick_threshold_time = time.perf_counter()
+        print(self.stick_threshold_time)
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
         if len(self.belt_imu_queue) < 60:
             return
+        while len(self.belt_imu_queue) > 60:
+            self.belt_imu_queue.pop(0)
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
         print(pred)
@@ -128,7 +128,7 @@ def main():
 
         # check if stick threshold is true
         if manager.stick_threshold:
-            if time.perf_counter_ns() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
+            if time.perf_counter() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
                 manager.stick_threshold = False
         
 
