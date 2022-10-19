@@ -15,10 +15,11 @@ def normalize_features(data, mu_data, sigma_data):
 def predictor(inputs):
 
     Test_data = inputs
-
     for i in range(0,6):
         for j in range(0,60):
             Test_data[j][i] = normalize_features(Test_data[j][i], mu[i], sigma[i])
+
+    Test_data = np.reshape(Test_data, newshape=(1,) + Test_data.shape)
 
     # print("test data shape: ", Test_data.shape)
 
@@ -28,5 +29,4 @@ def predictor(inputs):
 
     pred = model.predict(Test_data)
     prediction = np.argmax(pred, axis=1)
-
-    return activity[prediction]
+    return activity[prediction[0]]
