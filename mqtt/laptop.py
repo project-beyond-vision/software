@@ -82,7 +82,6 @@ class MqttManager():
     def update_threshold(self):
         self.stick_threshold = True
         self.stick_threshold_time = time.perf_counter()
-        print(self.stick_threshold_time)
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
@@ -93,13 +92,15 @@ class MqttManager():
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
         print(pred)
+        pred = "Fall"
         # update predqueue
         while len(self.predqueue) >= 4:
             self.predqueue.pop(0)
         self.predqueue.append(pred)
 
         # 1 is dummy number for when fall detected
-        if pred == activity[0] and self.stick_threshold:
+        if pred == "Fall" and self.stick_threshold:
+            print("GPS Trigger")
             self.predqueuebuffer = self.predqueue
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", "GPS trigger message")
@@ -108,7 +109,6 @@ class MqttManager():
 def send_telegram_message():
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
     print(requests.get(url).json()) # this sends the message and prints out the return value
-
 
 
 def main():
