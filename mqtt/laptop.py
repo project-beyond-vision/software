@@ -92,7 +92,6 @@ class MqttManager():
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
         print(pred)
-        pred = "Fall"
         # update predqueue
         while len(self.predqueue) >= 4:
             self.predqueue.pop(0)
