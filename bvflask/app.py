@@ -4,6 +4,9 @@ from flask import Flask, render_template, request, jsonify
 import json
 import os
 
+import numpy as np
+from sklearn.mixture import GaussianMixture
+
 from flask_sqlalchemy import SQLAlchemy
 
 import folium
@@ -18,6 +21,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 predlist = []
+
+actions = ('walking', 'jogging', 'running', 'stairs')
 
 @app.route('/')
 def index():
@@ -36,44 +41,56 @@ def store():
         pred4 = entry["pred4"]
         lat = entry["lat"]
         long = entry["long"]
-        print(entry["time"])
+        # print(entry["time"])
         time = datetime.fromisoformat(entry["time"])
-        print(type(time))
+        # print(type(time))
         entry = Entry(time, lat, long, pred1, pred2, pred3, pred4)
         db.session.add(entry)
         db.session.commit()
-        print(entry.id)
+        # print(entry.id)
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
     except Exception as e:
         print(e)
         return json.dumps({'success':False}), 400, {'ContentType':'application/json'} 
 
-@app.route('/hello')
-def get_entries():
-    entry = db.session.query(Entry)
-    print(entry.time)
-    print(entry)
-    return str(entry)
 
 @app.route('/drawMap')
 def draw_map():
-    # map_data = pd.read_csv("./Data/data_01.csv", sep=';')
     entries = db.session.query(Entry)
     lats = []
     longs = []
     preds = []
+
     for entry in entries:
+        # Collate locations of falls
         lats.append(entry.lat)
         longs.append(entry.long)
         preds.append(entry.pred4)
-    lat = mean(lats)
-    long = mean(longs)
-    startingLocation = [lat, long]#[39.47, -0.37]
+
+    X = np.array(list(zip(lats, longs)))
+    n = 4
+    gm = GaussianMixture(n).fit(X)
+    data_clusters = gm.predict(X)
+    unique, counts = np.unique(data_clusters, return_counts=True)
+
+    d = dict(zip(unique, counts))
+
+    latlongmeans = gm.means_
+    print(latlongmeans)
+    latlongmeans = np.c_[latlongmeans, np.zeros(n)]
+    for i in range(n):
+        latlongmeans[i, 2] = d.get(i, 0)
+        
+
+    # Place center of map in the middle of all falls
+    lat = np.mean(latlongmeans[:, 0])
+    long = np.mean(latlongmeans[:, 1])
+    startingLocation = [lat, long]
+    print(startingLocation)
     hmap = folium.Map(location=startingLocation, zoom_start=15)
-    # max_amount = map_data['RelacionPrecioTamanio'].max()
-    hm_wide = HeatMap( list(zip(lats, longs, preds)),
+
+    hm_wide = HeatMap( latlongmeans,
                         min_opacity=0.2,
-                        max_val=5,
                         radius=17, blur=15,
                         max_zoom=1)
 
@@ -83,6 +100,24 @@ def draw_map():
     hmap.save(os.path.join('./templates', 'heatmap.html'))
     #Render the heatmap
     return render_template('heatmap.html')
+
+@app.route('/bar')
+def bar():
+    entries = db.session.query(Entry)
+    prev_acts = {}
+
+    for entry in entries:
+        # Collate prev actions
+        all_prev_acts = [entry.pred1, entry.pred2, entry.pred3]
+        common_act = max(set(all_prev_acts), key=all_prev_acts.count)
+        common_act = actions[common_act]
+        if common_act not in prev_acts:
+            prev_acts[common_act] = 0
+        prev_acts[common_act] += 1
+
+    bar_labels=prev_acts.keys()
+    bar_values=prev_acts.values()
+    return render_template('bar_chart.html', title='Actions before falling', max=max(bar_values), labels=bar_labels, values=bar_values)
 
 
 class Entry(db.Model):
