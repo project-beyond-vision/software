@@ -20,7 +20,7 @@ def predictor(inputs):
     for i in range(0,NUM_FEATURES):
         for j in range(0,STEP_SIZE):
             Test_data[j][i] = normalize_features(Test_data[j][i], mu[i], sigma[i])
-
+    print(Test_data[0][0])
     Test_data = np.asarray(Test_data).reshape(1, STEP_SIZE, NUM_FEATURES)
 
     # print("test data shape: ", Test_data.shape)

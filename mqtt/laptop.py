@@ -18,10 +18,7 @@ class MqttManager():
         self.client = client
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        dummy = [0.1,0.2,0.3,0.4,0.5,0.6]
         self.belt_imu_queue = []
-        for i in range(60):
-            self.belt_imu_queue.append(dummy)
         self.predqueue = []
         self.stick_threshold = False
         self.stick_threshold_time = time.perf_counter()
@@ -36,7 +33,7 @@ class MqttManager():
         client.subscribe("group_05/gps")
 
     def on_message(self, client, userdata, msg):
-        print(msg.topic, msg.payload.decode("utf-8"))
+        # print(msg.topic, msg.payload.decode("utf-8"))
         if (msg.topic == "group_05/imu/data"):
             self.store_imu_data(msg.payload.decode("utf-8"))
         elif (msg.topic == "group_05/imu/threshold"):
@@ -48,7 +45,7 @@ class MqttManager():
         now = datetime.now()
 
         #TODO: handle case where predqueuebuffer less than 4
-        while len(self.predqueuebuffer) < 4:
+        while len(self.predqueuebuffer) < PREDQUEUE:
             # append NO PREDICTION to the START of the queue
             self.predqueuebuffer.insert(0, NO_PREDICTION) 
         
@@ -56,14 +53,20 @@ class MqttManager():
         "pred1": self.predqueuebuffer[0], 
         "pred2": self.predqueuebuffer[1], 
         "pred3": self.predqueuebuffer[2], 
-        "pred4": self.predqueuebuffer[3]}
+        "pred4": self.predqueuebuffer[3],
+        "pred5": self.predqueuebuffer[4], 
+        "pred6": self.predqueuebuffer[5], 
+        "pred7": self.predqueuebuffer[6], 
+        "pred8": self.predqueuebuffer[7], 
+        "pred9": self.predqueuebuffer[8], 
+        "pred10": self.predqueuebuffer[9]}
 
         x = requests.post(db_url, json=obj)
 
     def store_imu_data(self, data):
         data = json.loads(data)
         imu_entry = [data["x"], data["y"], data["z"], data["rx"], data["ry"], data["rz"]]
-        while len(self.belt_imu_queue) >= 60:
+        while len(self.belt_imu_queue) >= BELT_IMU_QUEUESIZE:
             self.belt_imu_queue.pop(0)
         self.belt_imu_queue.append(imu_entry)
     
@@ -88,18 +91,22 @@ class MqttManager():
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
-        if len(self.belt_imu_queue) < 60:
+        if len(self.belt_imu_queue) < BELT_IMU_QUEUESIZE:
             return
+        while len(self.belt_imu_queue) > BELT_IMU_QUEUESIZE:
+            self.belt_imu_queue.pop(0)
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
+        pred = "Fall" #test line remember to comment
         print(pred)
         # update predqueue
-        while len(self.predqueue) >= 4:
+        while len(self.predqueue) >= PREDQUEUE:
             self.predqueue.pop(0)
         self.predqueue.append(pred)
 
         # 1 is dummy number for when fall detected
-        if pred == activity[0] and self.stick_threshold:
+        if pred == "Fall" and self.stick_threshold:
+            print("GPS Trigger")
             self.predqueuebuffer = self.predqueue
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", "GPS trigger message")
@@ -108,7 +115,6 @@ class MqttManager():
 def send_telegram_message():
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
     print(requests.get(url).json()) # this sends the message and prints out the return value
-
 
 
 def main():
@@ -128,10 +134,10 @@ def main():
 
         # check if stick threshold is true
         if manager.stick_threshold:
-            if time.perf_counter_ns() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
+            if time.perf_counter() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
                 manager.stick_threshold = False
         
-
+        # suspend the thread to make my cpu usage not 100%
         time.sleep(0.001)
 
 if __name__ == "__main__":
