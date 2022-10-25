@@ -50,7 +50,7 @@ def on_message(client, userdata, msg):
     print("send gps")
     # Payload is in msg. We convert it back to a Python dictionary.
     # recv_dict = json.loads(msg.payload)
-    data = {"lat": 3.14, "long": 2.71}
+    data = {"lat": 1.3, "long": 2.71}
     client.publish("group_05/gps", json.dumps(data))
     # send_message_to_user()
 
