@@ -45,7 +45,7 @@ class MqttManager():
         now = datetime.now()
 
         #TODO: handle case where predqueuebuffer less than 4
-        while len(self.predqueuebuffer) < 4:
+        while len(self.predqueuebuffer) < PREDQUEUE:
             # append NO PREDICTION to the START of the queue
             self.predqueuebuffer.insert(0, NO_PREDICTION) 
         
@@ -53,14 +53,20 @@ class MqttManager():
         "pred1": self.predqueuebuffer[0], 
         "pred2": self.predqueuebuffer[1], 
         "pred3": self.predqueuebuffer[2], 
-        "pred4": self.predqueuebuffer[3]}
+        "pred4": self.predqueuebuffer[3],
+        "pred5": self.predqueuebuffer[4], 
+        "pred6": self.predqueuebuffer[5], 
+        "pred7": self.predqueuebuffer[6], 
+        "pred8": self.predqueuebuffer[7], 
+        "pred9": self.predqueuebuffer[8], 
+        "pred10": self.predqueuebuffer[9]}
 
         x = requests.post(db_url, json=obj)
 
     def store_imu_data(self, data):
         data = json.loads(data)
         imu_entry = [data["x"], data["y"], data["z"], data["rx"], data["ry"], data["rz"]]
-        while len(self.belt_imu_queue) >= 60:
+        while len(self.belt_imu_queue) >= BELT_IMU_QUEUESIZE:
             self.belt_imu_queue.pop(0)
         self.belt_imu_queue.append(imu_entry)
     
@@ -85,15 +91,16 @@ class MqttManager():
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
-        if len(self.belt_imu_queue) < 60:
+        if len(self.belt_imu_queue) < BELT_IMU_QUEUESIZE:
             return
-        while len(self.belt_imu_queue) > 60:
+        while len(self.belt_imu_queue) > BELT_IMU_QUEUESIZE:
             self.belt_imu_queue.pop(0)
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
+        pred = "Fall" #test line remember to comment
         print(pred)
         # update predqueue
-        while len(self.predqueue) >= 4:
+        while len(self.predqueue) >= PREDQUEUE:
             self.predqueue.pop(0)
         self.predqueue.append(pred)
 
@@ -130,7 +137,7 @@ def main():
             if time.perf_counter() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
                 manager.stick_threshold = False
         
-
+        # suspend the thread to make my cpu usage not 100%
         time.sleep(0.001)
 
 if __name__ == "__main__":
