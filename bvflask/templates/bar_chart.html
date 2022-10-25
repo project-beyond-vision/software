@@ -1,3 +1,4 @@
+<!-- Source: https://blog.ruanbekker.com/blog/2017/12/14/graphing-pretty-charts-with-python-flask-and-chartjs/ -->
 <head>
     <meta charset="utf-8" />
     <title>{{ title }}</title>
@@ -37,6 +38,54 @@
   
          steps = 10
          max = {{max}}
+  
+       // draw bar chart
+       new Chart(mychart).Bar(barData, {
+         scaleOverride: true,
+         scaleSteps: steps,
+         scaleStepWidth: Math.ceil(max / steps),
+         scaleStartValue: 0,
+         scaleShowVerticalLines: true,
+         scaleShowGridLines : true,
+         barShowStroke : true,
+         scaleShowLabels: true
+         }
+       );
+  
+      </script>
+    </center>
+    <center>
+      <h1>{{ title2 }}</h1>
+    </center>
+    <center>
+      <canvas id="chart2" width="600" height="400"></canvas>
+      <script>
+        // bar chart data
+        var barData = {
+          labels : [
+            {% for item in bool_labels %}
+             "{{ item }}",
+            {% endfor %}
+      ],
+  
+          datasets : [{
+            fillColor: "rgba(151,187,205,0.2)",
+            strokeColor: "rgba(151,187,205,1)",
+            pointColor: "rgba(151,187,205,1)",
+            data : [
+              {% for item in bool_values %}
+                 "{{ item }}",
+                {% endfor %}
+          ]
+            }
+          ]
+        }
+  
+       // get bar chart canvas
+       var mychart = document.getElementById("chart2").getContext("2d");
+  
+         steps = 10
+         max = {{max2}}
   
        // draw bar chart
        new Chart(mychart).Bar(barData, {
