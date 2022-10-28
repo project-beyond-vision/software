@@ -3,11 +3,10 @@ import json
 import csv
 import time
 
-#walking jogging sitting gettingup fall neutral
-# jogging omitted 
+#walking jogging sitting gettingup fall neutral climbing stairs
 # lateral forward backward
-person = "wamika"
-action = "jogging"
+person = "ramana"
+action = "walking"
 falltype = ""
 
 COUNT_THRESHOLD = 60
@@ -29,7 +28,7 @@ def on_message(client, userdata, msg):
     recv_dict = json.loads(msg.payload)
 
     # Recreate the data
-    print("Received data: ", recv_dict)
+    # print("Received data: ", recv_dict)
     circularqueue.append(recv_dict)
     while len(circularqueue) > COUNT_THRESHOLD:
         circularqueue.pop(0)
@@ -47,26 +46,41 @@ def setup(hostname: str) -> mqtt.Client:
     # client.loop_forever()
     return client
 
+def actionstr(isStand):
+    if isStand:
+        action = "stairsup"
+    else:
+        action = "stairsdown"
+    return action
+
 # Test main
 def main():
     client = setup(MOSQUITTO_BROKER_IP)
     global circularqueue
-    ctr = 0
+    global action
+    ctr = 98
     fields = ["x", "y", "z", "rx", "ry", "rz"]
-    timer = time.perf_counter()
+    isStand = True
+    print(f"get ready for {actionstr(isStand)} in 3 seconds")
+    time.sleep(3)
     while True:
-        if time.perf_counter() - timer > DATA_COLLECTION_INTERVAL and len(circularqueue) == 60:
-            timer = time.perf_counter()
-            with open(f"data/{person}/{action}/{ctr}.csv", "x") as f:
-                if len(circularqueue) == 60:
-                    writer = csv.DictWriter(f, fieldnames=fields)
-                    writer.writeheader()
-                    for i in range(len(circularqueue)):
-                        writer.writerow(circularqueue[i])
-                    ctr += 1
-        time.sleep(0.001)
+        action = actionstr(isStand)
+        print(f"{action} now")
+        time.sleep(3)
+        # file write happens here
+        with open(f"data/{person}/{action}/{ctr}.csv", "x") as f:
+            if len(circularqueue) == 60:
+                writer = csv.DictWriter(f, fieldnames=fields)
+                writer.writeheader()
+                for i in range(len(circularqueue)):
+                    writer.writerow(circularqueue[i])
+                ctr += 1
+        print("action finished")
+        isStand = not isStand
+        time.sleep(4)
 
 
 
 if __name__ == '__main__':
     main()
+

@@ -22,6 +22,10 @@ class MqttManager():
         self.predqueue = []
         self.stick_threshold = False
         self.stick_threshold_time = time.perf_counter()
+        self.isflame = False
+        self.isflametime = time.perf_counter()
+        self.ispanic = False
+        self.ispanictime = time.perf_counter()
         self.location = [] # for lat and long
 
         self.predqueuebuffer = [] # to store prediction queue on fall prediction and ensure it is not overwritten
@@ -31,6 +35,8 @@ class MqttManager():
         client.subscribe("group_05/imu/data")
         client.subscribe("group_05/imu/threshold")
         client.subscribe("group_05/gps")
+        client.subscribe("group_05/flame")
+        client.subscribe("group_05/panic")
 
     def on_message(self, client, userdata, msg):
         # print(msg.topic, msg.payload.decode("utf-8"))
@@ -50,6 +56,8 @@ class MqttManager():
             self.predqueuebuffer.insert(0, NO_PREDICTION) 
         
         obj = {"time":now.isoformat(), "lat":self.location[0], "long":self.location[1], 
+        # "isflame": ,
+        # "ispanic": ,
         "pred1": self.predqueuebuffer[0], 
         "pred2": self.predqueuebuffer[1], 
         "pred3": self.predqueuebuffer[2], 
@@ -88,6 +96,14 @@ class MqttManager():
     def update_threshold(self):
         self.stick_threshold = True
         self.stick_threshold_time = time.perf_counter()
+
+    def update_flame(self):
+        self.isflame = True
+        self.isflametime = time.perf_counter()
+    #TODO: accommodate flame and panic button triggers
+    def update_panic(self):
+        self.ispanic = True
+        self.ispanictime = time.perf_counter()
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
@@ -136,7 +152,12 @@ def main():
         if manager.stick_threshold:
             if time.perf_counter() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
                 manager.stick_threshold = False
-        
+        if manager.isflame:
+            if time.perf_counter() - manager.isflametime > FLAME_THRESHOLD_TIME:
+                manager.isflame = False
+        if manager.ispanic:
+            if time.perf_counter() - manager.ispanictime > PANIC_THRESHOLD_TIME:
+                manager.ispanic = False
         # suspend the thread to make my cpu usage not 100%
         time.sleep(0.001)
 
