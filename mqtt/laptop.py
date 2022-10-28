@@ -22,11 +22,8 @@ class MqttManager():
         self.predqueue = []
         self.stick_threshold = False
         self.stick_threshold_time = time.perf_counter()
-        self.isflame = False
-        self.isflametime = time.perf_counter()
-        self.ispanic = False
-        self.ispanictime = time.perf_counter()
         self.location = [] # for lat and long
+        self.gps_reason = ""
 
         self.predqueuebuffer = [] # to store prediction queue on fall prediction and ensure it is not overwritten
 
@@ -46,6 +43,10 @@ class MqttManager():
             self.update_threshold()
         elif (msg.topic == "group_05/gps"):
             self.update_location(msg.payload.decode("utf-8"))
+        elif (msg.topic == "group_05/flame"):
+            self.handle_flame()
+        elif (msg.topic == "group_05/panic"):
+            self.handle_panic()
 
     def store_database_entry(self):
         now = datetime.now()
@@ -85,8 +86,8 @@ class MqttManager():
         data = json.loads(data)
         # technically update location should be the last step in the api call after fall confirmed
         self.location = [data["lat"], data["long"]]
-
-        send_telegram_message()
+        msg = f'{self.gps_reason} at latitide: {data["lat"]} longitude: {data["long"]}'
+        send_telegram_message(msg)
         print("telegram message sent")
 
         # UNCOMMENT THE LINES BELOW ONLY IF THE SERVER IS RUNNING
@@ -97,13 +98,14 @@ class MqttManager():
         self.stick_threshold = True
         self.stick_threshold_time = time.perf_counter()
 
-    def update_flame(self):
-        self.isflame = True
-        self.isflametime = time.perf_counter()
-    #TODO: accommodate flame and panic button triggers
-    def update_panic(self):
-        self.ispanic = True
-        self.ispanictime = time.perf_counter()
+    def handle_flame(self):
+        self.gps_reason = "flame detected"
+        self.client.publish("group_05/gps_signal", "GPS trigger message")
+        
+    def handle_panic(self):
+        # if this function is called, send gps data immediately to user
+        self.gps_reason = "panic button asserted"
+        self.client.publish("group_05/gps_signal", "GPS trigger message")
 
     def make_prediction(self):        
         # DO NOT make prediction if there is less than 60 imu entries
@@ -113,7 +115,7 @@ class MqttManager():
             self.belt_imu_queue.pop(0)
         data = np.array(self.belt_imu_queue)
         pred = predictor(data) # dummy variable until api call is done
-        pred = "Fall" #test line remember to comment
+        # pred = "Fall" #test line remember to comment
         print(pred)
         # update predqueue
         while len(self.predqueue) >= PREDQUEUE:
@@ -123,13 +125,14 @@ class MqttManager():
         # 1 is dummy number for when fall detected
         if pred == "Fall" and self.stick_threshold:
             print("GPS Trigger")
+            self.gps_reason = "Fall detected"
             self.predqueuebuffer = self.predqueue
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", "GPS trigger message")
     
 
-def send_telegram_message():
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
+def send_telegram_message(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={msg}"
     print(requests.get(url).json()) # this sends the message and prints out the return value
 
 
@@ -143,7 +146,7 @@ def main():
     client.loop_start() # non-blocking
     predtimer = time.perf_counter()
     while True:
-        # make predictions in 3 second intervals
+        # make predictions every PRED_INTERVAL seconds
         if time.perf_counter() - predtimer > PRED_INTERVAL:
             predtimer = time.perf_counter()
             manager.make_prediction()
@@ -152,12 +155,6 @@ def main():
         if manager.stick_threshold:
             if time.perf_counter() - manager.stick_threshold_time > STICK_THRESHOLD_TIME:
                 manager.stick_threshold = False
-        if manager.isflame:
-            if time.perf_counter() - manager.isflametime > FLAME_THRESHOLD_TIME:
-                manager.isflame = False
-        if manager.ispanic:
-            if time.perf_counter() - manager.ispanictime > PANIC_THRESHOLD_TIME:
-                manager.ispanic = False
         # suspend the thread to make my cpu usage not 100%
         time.sleep(0.001)
 
