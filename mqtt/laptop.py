@@ -11,6 +11,9 @@ import time
 
 # it should have 60 entries in it
 # x y z rx ry rz
+FLAME_MESSAGE = "Flame detected"
+PANIC_MESSAGE = "Panic button asserted"
+EMPTY_STRING = ""
 
 class MqttManager():
 
@@ -54,11 +57,11 @@ class MqttManager():
         #TODO: handle case where predqueuebuffer less than 4
         while len(self.predqueuebuffer) < PREDQUEUE:
             # append NO PREDICTION to the START of the queue
-            self.predqueuebuffer.insert(0, NO_PREDICTION) 
+            self.predqueuebuffer.insert(0, "") 
         
         obj = {"time":now.isoformat(), "lat":self.location[0], "long":self.location[1], 
-        # "isflame": ,
-        # "ispanic": ,
+        "isflame": self.gps_reason == FLAME_MESSAGE,
+        "ispanic": self.gps_reason == PANIC_MESSAGE,
         "pred1": self.predqueuebuffer[0], 
         "pred2": self.predqueuebuffer[1], 
         "pred3": self.predqueuebuffer[2], 
@@ -88,6 +91,7 @@ class MqttManager():
         self.location = [data["lat"], data["long"]]
         msg = f'{self.gps_reason} at latitide: {data["lat"]} longitude: {data["long"]}'
         send_telegram_message(msg)
+        self.gps_reason = EMPTY_STRING
         print("telegram message sent")
 
         # UNCOMMENT THE LINES BELOW ONLY IF THE SERVER IS RUNNING
@@ -99,12 +103,12 @@ class MqttManager():
         self.stick_threshold_time = time.perf_counter()
 
     def handle_flame(self):
-        self.gps_reason = "flame detected"
+        self.gps_reason = FLAME_MESSAGE
         self.client.publish("group_05/gps_signal", "GPS trigger message")
         
     def handle_panic(self):
         # if this function is called, send gps data immediately to user
-        self.gps_reason = "panic button asserted"
+        self.gps_reason = PANIC_MESSAGE
         self.client.publish("group_05/gps_signal", "GPS trigger message")
 
     def make_prediction(self):        
