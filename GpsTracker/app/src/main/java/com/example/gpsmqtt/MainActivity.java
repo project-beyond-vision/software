@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         setContentView(R.layout.activity_main);
-        MqttAndroidClient client = new MqttAndroidClient(this.getApplicationContext(), "tcp://10.0.2.2:1883", clientId, new MemoryPersistence());
+        MqttAndroidClient client = new MqttAndroidClient(this.getApplicationContext(), "tcp://172.20.10.4:1883", clientId, new MemoryPersistence());
 
         try {
             IMqttToken token = client.connect();
@@ -98,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
+                    Log.d("Messagee", "message arrived");
                     String payload = new String(message.getPayload());
                     Log.d("Payload", payload);
                     statusText.setText(payload);
@@ -127,8 +128,8 @@ public class MainActivity extends AppCompatActivity {
 
             startLocationService();
 
-            String message = "Latitude: " + latitude + " Logitude: " + longitude;
-            Log.i("pub mess", message);
+            String message = "{\"lat\":" + latitude + ", \"long\":" + longitude + ", \"id\":" + payload + "}";
+            Log.d("pub mess", message);
 
             statusText = (TextView) findViewById(R.id.statusText);
             statusText.setText(message);
@@ -137,12 +138,12 @@ public class MainActivity extends AppCompatActivity {
             token.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.i("pub success", "publish succeed!");
+                    Log.d("pub success", "publish succeed!");
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.i("pub fail", "publish failed!");
+                    Log.d("pub fail", "publish failed!");
                 }
             });
         } catch (MqttException e) {
