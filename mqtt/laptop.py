@@ -106,12 +106,12 @@ class MqttManager():
 
     def handle_flame(self, id):
         self.datastore[id]["gps_reason"] = FLAME_MESSAGE
-        self.client.publish("group_05/gps_signal", "GPS trigger message")
+        self.client.publish("group_05/gps_signal", str(id))
         
     def handle_panic(self, id):
         # if this function is called, send gps data immediately to user
         self.datastore[id]["gps_reason"] = PANIC_MESSAGE
-        self.client.publish("group_05/gps_signal", "GPS trigger message")
+        self.client.publish("group_05/gps_signal", str(id))
 
     def make_prediction(self, id):        
         # DO NOT make prediction if there is less than 60 imu entries
@@ -133,7 +133,7 @@ class MqttManager():
             self.datastore[id]["gps_reason"] = "Fall detected"
             self.datastore[id]["predqueuebuffer"] = self.datastore[id]["predqueue"]
             # fall confirmed, send trigger for gps data
-            self.client.publish("group_05/gps_signal", "GPS trigger message")
+            self.client.publish("group_05/gps_signal", str(id))
     
 
 def send_telegram_message(msg, chatid):
