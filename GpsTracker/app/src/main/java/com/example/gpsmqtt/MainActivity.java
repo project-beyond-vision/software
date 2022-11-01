@@ -1,20 +1,39 @@
 package com.example.gpsmqtt;
 
 import android.content.Context;
+//import android.location.LocationRequest;
 import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.arch.core.internal.FastSafeIterableMap;
 import androidx.core.content.ContextCompat;
+
 import android.content.pm.PackageManager;
+
 import androidx.core.app.ActivityCompat;
+
 import android.Manifest;
+
 import androidx.annotation.NonNull;
+
+import android.os.Looper;
 import android.util.Log;
 
 import android.widget.TextView;
 import android.widget.Toast;
+
+import android.location.Location;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.CancellationToken;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.OnTokenCanceledListener;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -26,19 +45,24 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 public class MainActivity extends AppCompatActivity {
 
     String clientId = MqttClient.generateClientId();
     final String subscriptionTopic = "group_05/gps_signal";
     final String publisherTopic = "group_05/gps";
     TextView statusText;
-    String display;
-    int duration = Toast.LENGTH_LONG;
-    Context context;
+    private FusedLocationProviderClient fusedLocationClient;
+    double latitude, longitude;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
         setContentView(R.layout.activity_main);
         MqttAndroidClient client = new MqttAndroidClient(this.getApplicationContext(), "tcp://10.0.2.2:1883", clientId, new MemoryPersistence());
 
@@ -47,20 +71,21 @@ public class MainActivity extends AppCompatActivity {
             token.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-                    Toast.makeText(MainActivity.this,"connected!!",Toast.LENGTH_LONG).show();
+//                    Toast.makeText(MainActivity.this, "connected!!", Toast.LENGTH_LONG).show();
                     statusText = findViewById(R.id.statusText);
                     statusText.setText("connected"); //set text for text view
-                    try{
-                        client.subscribe(subscriptionTopic,0);
+                    Log.i("connect", "connected");
+                    try {
+                        client.subscribe(subscriptionTopic, 0);
 
-                    }catch (MqttException e){
+                    } catch (MqttException e) {
                         e.printStackTrace();
                     }
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Toast.makeText(MainActivity.this,"connection failed!!",Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "connection failed!!", Toast.LENGTH_LONG).show();
                 }
             });
 
@@ -68,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void connectionLost(Throwable cause) {
                     statusText.setText("connection lost");
-                    display = "connectionLost";
                     Log.d("connectionLost", "connectionLost");
                 }
 
@@ -92,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-//        checkLocationPermissions();
+        checkLocationPermissions();
     }
 
     public void publishMessage(MqttAndroidClient client, String payload) {
@@ -101,9 +125,16 @@ public class MainActivity extends AppCompatActivity {
                 client.connect();
             }
 
-            String message = payload;
+            startLocationService();
+
+            String message = "Latitude: " + latitude + " Logitude: " + longitude;
+            Log.i("pub mess", message);
+
+            statusText = (TextView) findViewById(R.id.statusText);
+            statusText.setText(message);
+
             IMqttToken token = client.publish(publisherTopic, message.getBytes(), 0, false);
-            token.setActionCallback( new IMqttActionListener() {
+            token.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.i("pub success", "publish succeed!");
@@ -122,17 +153,17 @@ public class MainActivity extends AppCompatActivity {
 
     public void checkLocationPermissions() {
         //if we have permission to access to gps location
+
         if (ContextCompat.checkSelfPermission(this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             //start location service
-            startLocationService();
+//            startLocationService();
         } else {
             //If do not have location access then request permissions
-            ActivityCompat.requestPermissions(this, new String[]{
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+            Log.i("Requesting", "Requesting loc permission");
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
     }
 
@@ -160,19 +191,42 @@ public class MainActivity extends AppCompatActivity {
                         statusText.setText("No access to GPS");
                     }
                     //If user hasn't checked for "never ask again"
-                    else checkLocationPermissions();
+                    checkLocationPermissions();
                 }
                 //user grants permissions
                 else granted = true;
             }
             //If user grants permissions
-            if (granted) startLocationService();
+//            if (granted) startLocationService();
 
         }
     }
 
     private void startLocationService() {
+        Log.i("loc", "starting loc");
+        if (ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getCurrentLocation(LocationRequest.PRIORITY_HIGH_ACCURACY, new CancellationToken() {
+                @Override
+                public boolean isCancellationRequested() {
+                    return false;
+                }
 
+                @NonNull
+                @Override
+                public CancellationToken onCanceledRequested(@NonNull OnTokenCanceledListener onTokenCanceledListener) {
+                    return null;
+                }
+            }).addOnSuccessListener(location -> {
+                Location currentLocation = location;
+                latitude = currentLocation.getLatitude();
+                longitude = currentLocation.getLongitude();
+                statusText = (TextView) findViewById(R.id.statusText);
+                statusText.setText("Latitude: " + latitude + " Logitude: " + longitude);
+
+            });
+        }
     }
 
 }
