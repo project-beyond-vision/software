@@ -91,7 +91,7 @@ class MqttManager():
     def update_location(self, data):
         # technically update location should be the last step in the api call after fall confirmed
         self.datastore[data["id"]]["location"] = [data["lat"], data["long"]]
-        msg = f'{self.datastore[data["id"]]["gps_reason"]} at latitide: {data["lat"]} longitude: {data["long"]}'
+        msg = f'{self.datastore[data["id"]]["gps_reason"]} at {google_maps_api_url}{data["lat"]}.{data["long"]}'
         send_telegram_message(msg, self.datastore[data["id"]]["chat_id"])
         self.datastore[data["id"]]["gps_reason"] = EMPTY_STRING
         print("telegram message sent")

@@ -1,5 +1,6 @@
 TOKEN = ""
 db_url = 'http://127.0.0.1:5000/store'
+google_maps_api_url = "https://www.google.com/maps/place/"
 mosquitto_ip = "localhost"
 
 STICK_THRESHOLD_TIME = 10.0
