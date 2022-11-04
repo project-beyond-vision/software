@@ -3,7 +3,7 @@ import pandas as pd
 import keras
 
 STEP_SIZE = 60
-NUM_FEATURES = 6
+NUM_FEATURES = 3
 
 activity = ['Sitting action', 'Fall', 'Walking', 'climbing stairs', 'getting up']
 
@@ -15,11 +15,11 @@ def normalize_features(data, mu_data, sigma_data):
 
 def predictor(inputs):
 
-    Test_data = inputs
+    Test_data = inputs[:, -3]
 
     for i in range(0,NUM_FEATURES):
         for j in range(0,STEP_SIZE):
-            Test_data[j][i] = normalize_features(Test_data[j][i], mu[i], sigma[i])
+            Test_data[j][i] = normalize_features(Test_data[j][i], mu[i+3], sigma[i+3])
     print(Test_data[0][0])
     Test_data = np.asarray(Test_data).reshape(1, STEP_SIZE * NUM_FEATURES)
 
