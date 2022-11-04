@@ -4,6 +4,7 @@ import json
 import os
 
 import numpy as np
+import random
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -46,7 +47,7 @@ def store():
         pred9 = entry["pred9"]
 
         all_prev_acts = [pred1, pred2, pred3, pred4, pred5, pred6, pred7, pred8, pred9]
-        prev_pred = max(set(all_prev_acts), key=all_prev_acts.count)
+        prev_pred = max(set(all_prev_acts), key=lambda i: all_prev_acts.count(i) + random.random())
 
         pred10 = entry["pred10"]
         is_panic = entry["is_panic"]
@@ -55,13 +56,14 @@ def store():
         lat = entry["lat"]
         long = entry["long"]
         time = datetime.fromisoformat(entry["time"])
-        entry = Entry(time, lat, long, is_panic, is_flame, pred1, pred2, pred3, pred4, pred5, pred6, pred7, pred8, pred9, prev_pred, pred10)
-        db.session.add(entry)
+        entry_db = Entry(time, lat, long, is_panic, is_flame, pred1, pred2, pred3, pred4, pred5, pred6, pred7, pred8, pred9, prev_pred, pred10)
+        db.session.add(entry_db)
         db.session.commit()
+        print("Entry added to the database!", entry)
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
     except Exception as e:
         print(e)
-        return json.dumps({'success':False}), 400, {'ContentType':'application/json'} 
+        return json.dumps({'success':False}), 500, {'ContentType':'application/json'} 
 
 
 @app.route('/drawMap')
@@ -87,7 +89,7 @@ def draw_map():
     startingLocation = [lat, long]
     print(startingLocation)
 
-    hmap = folium.Map(location=startingLocation, zoom_start=15)
+    hmap = folium.Map(location=startingLocation, zoom_start=12)
 
     title = 'Heatmap of Aggregated Falls per Unit Area'
     title_html = f'''
@@ -114,7 +116,7 @@ def draw_map():
     hmap.add_child(hm_wide)
 
     # Saves the map to heatmap.hmtl
-    hmap.save(os.path.join('./templates', 'heatmap.html'))
+    # hmap.save(os.path.join('./templates', 'heatmap.html'))
     #Render the heatmap
     return render_template('heatmap.html')
 
@@ -133,23 +135,41 @@ def bar():
         panics.append(e.is_panic)
         flames.append(e.is_flame)
 
-    prev_acts_lst = np.array([e.prev_pred for e in entries])
+    prev_acts_lst = np.array(prev_acts)
     n = prev_acts_lst.shape[0]
-    prev_acts, counts = np.unique(prev_acts_lst, return_counts=True)
+    prev_acts, prev_act_counts = np.unique(prev_acts_lst, return_counts=True)
 
-
+    fall_types_lst = np.array(fall_types)
+    fall_types, fall_type_counts = np.unique(fall_types_lst, return_counts=True)
 
     n_panics = sum(panics)
     n_flames = sum(flames)
 
-    bar_labels=[ACTION_ID_TO_STRING[i] for i in prev_acts]
-    bar_values=counts
+    data = [
+        {
+            'title': 'Actions Before Falling',
+            'description': 'What are people doing before they fall? Here are the stats.',
+            'labels': [ACTION_ID_TO_STRING[i] for i in prev_acts],
+            'counts': prev_act_counts,
+            'chart_name': 'action_chart'
+        },
+        {
+            'title': 'Types of Falls',
+            'description': 'How are they falling? Forward? To the side?',
+            'labels': [FALL_ID_TO_STRING[i] for i in fall_types],
+            'counts': fall_type_counts,
+            'chart_name': 'fall_type_chart'
+        },
+        {
+            'title': 'Panic or Flame?',
+            'description': 'Did they already feel something was wrong? Did they press the panic button? Was there a fire?',
+            'labels': ['panic', 'no panic', 'fire', 'no fire'],
+            'counts': [n_panics, n - n_panics, n_flames, n - n_flames],
+            'chart_name': 'panic_fire_chart'
+        }
+    ]
 
-    bool_labels = ['panic', 'no panic', 'flame', 'no flame']
-    bool_values = [n_panics, n - n_panics, n_flames, n - n_flames]
-
-    return render_template('bar_chart.html', title='Actions Before Falling', max=max(bar_values), labels=bar_labels, values=bar_values,
-        title2='Panic or Flame?', max2=max(bool_values), bool_labels=bool_labels, bool_values=bool_values)
+    return render_template('bar_chart.html', data=data)
 
 
 class Entry(db.Model):
