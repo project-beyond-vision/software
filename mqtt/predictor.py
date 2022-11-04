@@ -21,12 +21,12 @@ def predictor(inputs):
         for j in range(0,STEP_SIZE):
             Test_data[j][i] = normalize_features(Test_data[j][i], mu[i], sigma[i])
     print(Test_data[0][0])
-    Test_data = np.asarray(Test_data).reshape(1, STEP_SIZE, NUM_FEATURES)
+    Test_data = np.asarray(Test_data).reshape(1, STEP_SIZE * NUM_FEATURES)
 
     # print("test data shape: ", Test_data.shape)
 
     # Use absolute path to the .h5 file
-    model = keras.models.load_model('best_model_cnn.h5')
+    model = keras.models.load_model('best_model_tr.h5')
 
     Test_data = Test_data.astype("float32")
 
