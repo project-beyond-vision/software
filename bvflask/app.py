@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 import folium
 from folium.plugins import HeatMap
+import branca
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] =\
@@ -20,7 +21,8 @@ db = SQLAlchemy(app)
 
 predlist = []
 
-actions = ('walking', 'jogging', 'running', 'stairs')
+ACTION_ID_TO_STRING = ('sitting', 'getting up', 'climbing stairs', 'walking')
+FALL_ID_TO_STRING = ('forward', 'left', 'right', 'backward')
 
 @app.route('/')
 def index():
@@ -84,15 +86,33 @@ def draw_map():
     long = np.mean(latlongmeans[:, 1])
     startingLocation = [lat, long]
     print(startingLocation)
+
     hmap = folium.Map(location=startingLocation, zoom_start=15)
+
+    title = 'Heatmap of Aggregated Falls per Unit Area'
+    title_html = f'''
+             <h3 align="center" style="font-size:16px"><b>{title}</b></h3>
+             '''
+    hmap.get_root().html.add_child(folium.Element(title_html))
+
+    steps=20
+    colormap = branca.colormap.linear.RdPu_09.to_step(steps)
+    gradient_map={}
+    for i in range(steps):
+        gradient_map[1/steps*i] = colormap.rgb_hex_str(1/steps*i)
+    colormap.caption = 'Density of Falls'
+    colormap.add_to(hmap) #add color bar at the top of the map
+
 
     hm_wide = HeatMap( latlongmeans,
                         min_opacity=0.2,
                         radius=17, blur=15,
-                        max_zoom=1)
+                        max_zoom=1,
+                        gradient=gradient_map)
 
     # Adds the heatmap element to the map
     hmap.add_child(hm_wide)
+
     # Saves the map to heatmap.hmtl
     hmap.save(os.path.join('./templates', 'heatmap.html'))
     #Render the heatmap
@@ -102,21 +122,33 @@ def draw_map():
 def bar():
     entries = db.session.query(Entry)
 
+    prev_acts = []
+    fall_types = [] 
+    panics = []
+    flames = []
+
+    for e in entries:
+        prev_acts.append(e.prev_pred)
+        fall_types.append(e.pred10)
+        panics.append(e.is_panic)
+        flames.append(e.is_flame)
+
     prev_acts_lst = np.array([e.prev_pred for e in entries])
     n = prev_acts_lst.shape[0]
     prev_acts, counts = np.unique(prev_acts_lst, return_counts=True)
 
-    panics = [e.is_panic for e in entries]
+
+
     n_panics = sum(panics)
-    flames = [e.is_flame for e in entries]
     n_flames = sum(flames)
 
-    bar_labels=[actions[i-1] for i in prev_acts]
+    bar_labels=[ACTION_ID_TO_STRING[i] for i in prev_acts]
     bar_values=counts
 
     bool_labels = ['panic', 'no panic', 'flame', 'no flame']
     bool_values = [n_panics, n - n_panics, n_flames, n - n_flames]
-    return render_template('bar_chart.html', title='Actions before falling', max=max(bar_values), labels=bar_labels, values=bar_values,
+
+    return render_template('bar_chart.html', title='Actions Before Falling', max=max(bar_values), labels=bar_labels, values=bar_values,
         title2='Panic or Flame?', max2=max(bool_values), bool_labels=bool_labels, bool_values=bool_values)
 
 
