@@ -22,6 +22,8 @@ class MqttManager():
         self.datastore = {}
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.blockctr = 0
+        self.isfall = False
 
     def on_connect(self, client, userdata, flags, rc):
         print("Connected with result code", str(rc))
@@ -49,6 +51,7 @@ class MqttManager():
         if (msg.topic == "group_05/imu/data"):
             self.store_imu_data(data)
         elif (msg.topic == "group_05/gps"):
+            print("TEST")
             self.update_location(data)
         elif (msg.topic == "group_05/flame"):
             self.handle_flame(data["id"])
@@ -58,11 +61,12 @@ class MqttManager():
     def store_database_entry(self, id):
         now = datetime.now()
 
-        #TODO: handle case where predqueuebuffer less than 4
         while len(self.datastore[id]["predqueuebuffer"]) < PREDQUEUE:
             # append NO PREDICTION to the START of the queue
             self.datastore[id]["predqueuebuffer"].insert(0, "") 
-        
+        print(self.datastore[id]["gps_reason"])
+        print(PANIC_MESSAGE)
+        print(self.datastore[id]["gps_reason"] == PANIC_MESSAGE)
         obj = {"time":now.isoformat(), "lat":self.datastore[id]["location"][0], "long":self.datastore[id]["location"][1], 
         "is_flame": self.datastore[id]["gps_reason"] == FLAME_MESSAGE,
         "is_panic": self.datastore[id]["gps_reason"] == PANIC_MESSAGE,
@@ -91,9 +95,9 @@ class MqttManager():
     def update_location(self, data):
         # technically update location should be the last step in the api call after fall confirmed
         self.datastore[data["id"]]["location"] = [data["lat"], data["long"]]
-        msg = f'{self.datastore[data["id"]]["gps_reason"]} at {google_maps_api_url}{data["lat"]}.{data["long"]}'
+        msg = f'{self.datastore[data["id"]]["gps_reason"]} at {google_maps_api_url}{data["lat"]},{data["long"]}'
+        
         send_telegram_message(msg, self.datastore[data["id"]]["chat_id"])
-        self.datastore[data["id"]]["gps_reason"] = EMPTY_STRING
         print("telegram message sent")
 
         # UNCOMMENT THE LINES BELOW ONLY IF THE SERVER IS RUNNING
@@ -103,6 +107,8 @@ class MqttManager():
         except Exception as e:
             print(f"caught {e}")
             print(f"Is the database server running and connected to your local network?")
+        
+        self.datastore[data["id"]]["gps_reason"] = EMPTY_STRING
 
     def handle_flame(self, id):
         self.datastore[id]["gps_reason"] = FLAME_MESSAGE
@@ -128,12 +134,18 @@ class MqttManager():
             self.datastore[id]["predqueue"].pop(0)
         self.datastore[id]["predqueue"].append(pred)
 
-        if pred == "Fall":# and self.stick_threshold:
+        if pred == "Fall" and self.blockctr == 0:# and self.stick_threshold:
+            self.isfall = True
             print("GPS Trigger")
             self.datastore[id]["gps_reason"] = "Fall detected"
             self.datastore[id]["predqueuebuffer"] = self.datastore[id]["predqueue"]
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", str(id))
+
+        if self.isfall:
+            self.blockctr = self.blockctr + 1
+        if self.blockctr == 4:
+            self.blockctr = 0
     
 
 def send_telegram_message(msg, chatid):
@@ -155,6 +167,7 @@ def main():
         for key in manager.datastore:
             if time.perf_counter() - predtimer > PRED_INTERVAL:
                 predtimer = time.perf_counter()
+                # print(manager.datastore[key]["imu_queue"])
                 manager.make_prediction(key)
         # suspend the thread to make my cpu usage not 100%
         time.sleep(0.001)
