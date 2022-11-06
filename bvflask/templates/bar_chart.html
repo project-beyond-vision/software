@@ -6,40 +6,39 @@
   </head>
   
   <body>
-    {# {% for title in titles %}   #}
+    {% for analysis in data %}  
     <center>
-      <h1>{{ title }}</h1>
-    What are people doing before they fall? Here are the stats.
+      <h1>{{ analysis.title }}</h1>
+      {{ analysis.description }}
     </center>
     <center>
-      <canvas id="chart" width="600" height="400"></canvas>
+      <canvas id={{analysis.chart_name}} width="600" height="400"></canvas>
       <script>
         // bar chart data
         var barData = {
           labels : [
-            {% for item in labels %}
-             "{{ item }}",
+            {% for item in analysis.labels %}
+              "{{ item }}",
             {% endfor %}
-      ],
+          ],
   
           datasets : [{
             fillColor: "rgba(151,187,205,0.2)",
             strokeColor: "rgba(151,187,205,1)",
             pointColor: "rgba(151,187,205,1)",
             data : [
-              {% for item in values %}
+              {% for item in analysis.counts %}
                  "{{ item }}",
-                {% endfor %}
-          ]
-            }
-          ]
+              {% endfor %}
+            ]
+          }]
         }
   
        // get bar chart canvas
-       var mychart = document.getElementById("chart").getContext("2d");
+       var mychart = document.getElementById("{{analysis.chart_name}}").getContext("2d");
   
          steps = 10
-         max = {{max}}
+         max = {{ (analysis.counts | sort)[-1] }}
   
        // draw bar chart
        new Chart(mychart).Bar(barData, {
@@ -56,54 +55,6 @@
   
       </script>
     </center>
-    <center>
-      <h1>{{ title2 }}</h1>
-      Is something going on when the fall is happening?
-    </center>
-    <center>
-      <canvas id="chart2" width="600" height="400"></canvas>
-      <script>
-        // bar chart data
-        var barData = {
-          labels : [
-            {% for item in bool_labels %}
-             "{{ item }}",
-            {% endfor %}
-      ],
-  
-          datasets : [{
-            fillColor: "rgba(151,187,205,0.2)",
-            strokeColor: "rgba(151,187,205,1)",
-            pointColor: "rgba(151,187,205,1)",
-            data : [
-              {% for item in bool_values %}
-                 "{{ item }}",
-                {% endfor %}
-          ]
-            }
-          ]
-        }
-  
-       // get bar chart canvas
-       var mychart = document.getElementById("chart2").getContext("2d");
-  
-         steps = 10
-         max = {{max2}}
-  
-       // draw bar chart
-       new Chart(mychart).Bar(barData, {
-         scaleOverride: true,
-         scaleSteps: steps,
-         scaleStepWidth: Math.ceil(max / steps),
-         scaleStartValue: 0,
-         scaleShowVerticalLines: true,
-         scaleShowGridLines : true,
-         barShowStroke : true,
-         scaleShowLabels: true
-         }
-       );
-  
-      </script>
-    </center>
+    {% endfor %}
   </body>
   </html>
