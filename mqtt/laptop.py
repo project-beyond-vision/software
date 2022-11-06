@@ -14,6 +14,7 @@ import time
 FLAME_MESSAGE = "Flame detected"
 PANIC_MESSAGE = "Panic button asserted"
 EMPTY_STRING = ""
+FALL_LIST = [""]
 
 class MqttManager():
 
@@ -51,7 +52,6 @@ class MqttManager():
         if (msg.topic == "group_05/imu/data"):
             self.store_imu_data(data)
         elif (msg.topic == "group_05/gps"):
-            print("TEST")
             self.update_location(data)
         elif (msg.topic == "group_05/flame"):
             self.handle_flame(data["id"])
@@ -63,10 +63,7 @@ class MqttManager():
 
         while len(self.datastore[id]["predqueuebuffer"]) < PREDQUEUE:
             # append NO PREDICTION to the START of the queue
-            self.datastore[id]["predqueuebuffer"].insert(0, "") 
-        print(self.datastore[id]["gps_reason"])
-        print(PANIC_MESSAGE)
-        print(self.datastore[id]["gps_reason"] == PANIC_MESSAGE)
+            self.datastore[id]["predqueuebuffer"].insert(0, "")
         obj = {"time":now.isoformat(), "lat":self.datastore[id]["location"][0], "long":self.datastore[id]["location"][1], 
         "is_flame": self.datastore[id]["gps_reason"] == FLAME_MESSAGE,
         "is_panic": self.datastore[id]["gps_reason"] == PANIC_MESSAGE,
@@ -112,11 +109,13 @@ class MqttManager():
 
     def handle_flame(self, id):
         self.datastore[id]["gps_reason"] = FLAME_MESSAGE
+        print("GPS TRIGGER")
         self.client.publish("group_05/gps_signal", str(id))
         
     def handle_panic(self, id):
         # if this function is called, send gps data immediately to user
         self.datastore[id]["gps_reason"] = PANIC_MESSAGE
+        print("GPS TRIGGER")
         self.client.publish("group_05/gps_signal", str(id))
 
     def make_prediction(self, id):        
@@ -126,7 +125,8 @@ class MqttManager():
         while len(self.datastore[id]["imu_queue"]) > BELT_IMU_QUEUESIZE:
             self.datastore[id]["imu_queue"].pop(0)
         data = np.array(self.datastore[id]["imu_queue"])
-        pred = predictor(data) # dummy variable until api call is done
+        # print(data)
+        [falltype, pred] = predictor(data) # dummy variable until api call is done
         # pred = "Fall" #test line remember to comment
         print(pred)
         # update predqueue
@@ -136,15 +136,17 @@ class MqttManager():
 
         if pred == "Fall" and self.blockctr == 0:# and self.stick_threshold:
             self.isfall = True
+            print(falltype)
             print("GPS Trigger")
             self.datastore[id]["gps_reason"] = "Fall detected"
             self.datastore[id]["predqueuebuffer"] = self.datastore[id]["predqueue"]
             # fall confirmed, send trigger for gps data
             self.client.publish("group_05/gps_signal", str(id))
 
-        if self.isfall:
+        if self.isfall == True:
             self.blockctr = self.blockctr + 1
         if self.blockctr == 4:
+            self.isfall = False
             self.blockctr = 0
     
 

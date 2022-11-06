@@ -30,7 +30,7 @@ def predictor(inputs):
     # print("test data shape: ", Test_data.shape)
 
     # Use absolute path to the .h5 file
-    model = keras.models.load_model('best_model_tr.h5')
+    model = keras.models.load_model('best_model_cnn.h5')
     model_fall = keras.models.load_model('best_model_cnn_fall_types.h5')
 
     Test_data = Test_data.astype("float32")
