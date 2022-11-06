@@ -22,7 +22,8 @@ db = SQLAlchemy(app)
 
 predlist = []
 
-ACTION_ID_TO_STRING = ('sitting', 'getting up', 'climbing stairs', 'walking')
+ACTION_ID_TO_STRING = ('Sitting Action', 'Walking', 'Idle', 'Fall', '')
+ACTION_STRING_TO_ID = {s: i for i, s in enumerate(ACTION_ID_TO_STRING)}
 FALL_ID_TO_STRING = ('forward', 'left', 'right', 'backward')
 
 @app.route('/')
@@ -47,6 +48,7 @@ def store():
         pred9 = entry["pred9"]
 
         all_prev_acts = [pred1, pred2, pred3, pred4, pred5, pred6, pred7, pred8, pred9]
+        all_prev_acts = [ACTION_STRING_TO_ID[x] if type(x) == str else x for x in all_prev_acts]
         prev_pred = max(set(all_prev_acts), key=lambda i: all_prev_acts.count(i) + random.random())
 
         pred10 = entry["pred10"]
@@ -130,17 +132,27 @@ def bar():
     flames = []
 
     for e in entries:
+        if type(e.prev_pred) == str:
+            e.prev_pred = ACTION_STRING_TO_ID[e.prev_pred]
+        if type(e.pred10) == str:
+            e.pred10 = min(ACTION_STRING_TO_ID[e.pred10], len(FALL_ID_TO_STRING) - 1)
+        
         prev_acts.append(e.prev_pred)
         fall_types.append(e.pred10)
         panics.append(e.is_panic)
         flames.append(e.is_flame)
+        # print(e.pred10)
+
+    
 
     prev_acts_lst = np.array(prev_acts)
     n = prev_acts_lst.shape[0]
     prev_acts, prev_act_counts = np.unique(prev_acts_lst, return_counts=True)
+    print(prev_acts)
 
     fall_types_lst = np.array(fall_types)
     fall_types, fall_type_counts = np.unique(fall_types_lst, return_counts=True)
+    print(fall_types)
 
     n_panics = sum(panics)
     n_flames = sum(flames)
