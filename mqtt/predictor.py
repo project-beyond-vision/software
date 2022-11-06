@@ -48,6 +48,6 @@ def predictor(inputs):
         prediction_fall = np.argmax(pred_fall, axis=1)[0]
 
     # print(prediction.shape)
-    fall_type = 'fall' if (prediction == 0) else activity_fall[prediction_fall]
+    fall_type = 'fall' if (prediction != 0) else activity_fall[prediction_fall]
 
     return fall_type, activity[prediction]
