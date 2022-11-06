@@ -22,9 +22,11 @@ db = SQLAlchemy(app)
 
 predlist = []
 
-ACTION_ID_TO_STRING = ('Sitting Action', 'Walking', 'Idle', 'Fall', '')
+FALL_TYPES = ('Forward', 'Lateral', 'Backward')
+ACTION_ID_TO_STRING = ('Sitting Action', 'Walking', 'Idle') + FALL_TYPES + ('Fall', '')
 ACTION_STRING_TO_ID = {s: i for i, s in enumerate(ACTION_ID_TO_STRING)}
-FALL_ID_TO_STRING = ('forward', 'left', 'right', 'backward')
+
+
 
 @app.route('/')
 def index():
@@ -39,7 +41,7 @@ def store():
     try:
         pred1 = entry["pred1"]
         pred2 = entry["pred2"]
-        pred3 = entry["pred3"]
+        pred3 = entry["pred3"] 
         pred4 = entry["pred4"]
         pred5 = entry["pred5"]
         pred6 = entry["pred6"]
@@ -52,13 +54,14 @@ def store():
         prev_pred = max(set(all_prev_acts), key=lambda i: all_prev_acts.count(i) + random.random())
 
         pred10 = entry["pred10"]
+        pred10 = ACTION_STRING_TO_ID[pred10] if type(pred10) == str else pred10
         is_panic = entry["is_panic"]
         is_flame = entry["is_flame"]
 
         lat = entry["lat"]
         long = entry["long"]
         time = datetime.fromisoformat(entry["time"])
-        entry_db = Entry(time, lat, long, is_panic, is_flame, pred1, pred2, pred3, pred4, pred5, pred6, pred7, pred8, pred9, prev_pred, pred10)
+        entry_db = Entry(time, lat, long, is_panic, is_flame, *all_prev_acts, prev_pred, pred10)
         db.session.add(entry_db)
         db.session.commit()
         print("Entry added to the database!", entry)
@@ -135,10 +138,11 @@ def bar():
         if type(e.prev_pred) == str:
             e.prev_pred = ACTION_STRING_TO_ID[e.prev_pred]
         if type(e.pred10) == str:
-            e.pred10 = min(ACTION_STRING_TO_ID[e.pred10], len(FALL_ID_TO_STRING) - 1)
+            e.pred10 = ACTION_STRING_TO_ID[e.pred10]
         
         prev_acts.append(e.prev_pred)
-        fall_types.append(e.pred10)
+        if 3 <= e.pred10 <= 5:
+            fall_types.append(e.pred10)
         panics.append(e.is_panic)
         flames.append(e.is_flame)
         # print(e.pred10)
@@ -168,7 +172,7 @@ def bar():
         {
             'title': 'Types of Falls',
             'description': 'How are they falling? Forward? To the side?',
-            'labels': [FALL_ID_TO_STRING[i] for i in fall_types],
+            'labels': [ACTION_ID_TO_STRING[i] for i in fall_types],
             'counts': fall_type_counts,
             'chart_name': 'fall_type_chart'
         },

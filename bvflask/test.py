@@ -3,7 +3,8 @@ from datetime import datetime
 import numpy as np
 from random import getrandbits, random
 
-#test for 
+FALL_TYPES = ('Forward', 'Lateral', 'Backward')
+ACTION_ID_TO_STRING = ('Sitting Action', 'Walking', 'Idle') + FALL_TYPES + ('Fall',)
 
 url = 'http://127.0.0.1:5000/store'
 now = datetime.now()
@@ -15,10 +16,11 @@ obj = []
 for lat, long, n in latlongs:
     dsb = np.random.multivariate_normal((lat, long), [[0.00001, 0], [0, 0.00002]], n)
     for i in range(n):
-        rand_acts = [int(np.random.randint(0, 4)) for _ in range(10)]
+        rand_acts = [ACTION_ID_TO_STRING[int(np.random.randint(0, 3))] for _ in range(9)]
+        pred10 = ACTION_ID_TO_STRING[int(np.random.randint(3, 6))]
         lat, long = dsb[i]
-        d1 = {f'pred{i+1}': rand_acts[i] for i in range(10)}
-        d2 = {"time":timenow, "lat":lat, "long": long, "is_panic": bool(getrandbits(1)), "is_flame": random() < 0.1}
+        d1 = {f'pred{i+1}': rand_acts[i] for i in range(9)}
+        d2 = {"pred10": pred10, "time":timenow, "lat":lat, "long": long, "is_panic": bool(getrandbits(1)), "is_flame": random() < 0.1}
         obj.append(d1 | d2)
 
 
