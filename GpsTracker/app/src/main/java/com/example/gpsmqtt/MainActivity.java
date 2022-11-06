@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         setContentView(R.layout.activity_main);
-        MqttAndroidClient client = new MqttAndroidClient(this.getApplicationContext(), "tcp://172.20.10.4:1883", clientId, new MemoryPersistence());
+        MqttAndroidClient client = new MqttAndroidClient(this.getApplicationContext(), "tcp://192.168.216.234:1883", clientId, new MemoryPersistence()); //zeon: tcp://172.20.10.4:1883, wam: tcp://192.168.216.234
 
         try {
             IMqttToken token = client.connect();
@@ -112,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
             });
+            startLocationService();
 
         } catch (MqttException e) {
             e.printStackTrace();
@@ -159,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
                 android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             //start location service
-//            startLocationService();
+            startLocationService();
         } else {
             //If do not have location access then request permissions
             Log.i("Requesting", "Requesting loc permission");
@@ -198,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
                 else granted = true;
             }
             //If user grants permissions
-//            if (granted) startLocationService();
+            if (granted) startLocationService();
 
         }
     }
@@ -208,6 +209,7 @@ public class MainActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+
             fusedLocationClient.getCurrentLocation(LocationRequest.PRIORITY_HIGH_ACCURACY, new CancellationToken() {
                 @Override
                 public boolean isCancellationRequested() {
@@ -227,6 +229,8 @@ public class MainActivity extends AppCompatActivity {
                 statusText.setText("Latitude: " + latitude + " Logitude: " + longitude);
 
             });
+        } else {
+            checkLocationPermissions();
         }
     }
 
