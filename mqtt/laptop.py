@@ -14,7 +14,7 @@ import time
 FLAME_MESSAGE = "Flame detected"
 PANIC_MESSAGE = "Panic button asserted"
 EMPTY_STRING = ""
-FALL_LIST = [""]
+FALL_LIST = ["Fall", "Backward", "Lateral", "Forward"]
 
 class MqttManager():
 
@@ -130,12 +130,15 @@ class MqttManager():
         # pred = "Fall" #test line remember to comment
         print(pred)
         # update predqueue
+        if pred == "Fall":
+            pred = falltype
         while len(self.datastore[id]["predqueue"]) >= PREDQUEUE:
             self.datastore[id]["predqueue"].pop(0)
         self.datastore[id]["predqueue"].append(pred)
 
-        if pred == "Fall" and self.blockctr == 0:# and self.stick_threshold:
+        if pred in FALL_LIST and self.blockctr == 0:# and self.stick_threshold:
             self.isfall = True
+            pred = falltype
             print(falltype)
             print("GPS Trigger")
             self.datastore[id]["gps_reason"] = "Fall detected"
